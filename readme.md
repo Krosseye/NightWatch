@@ -22,6 +22,31 @@
 
 ![Preview of NightWatch app](img/preview.png)
 
+## Building from source
+
+**NightWatch** offers two methods for compilation; native compilation and Docker-based compilation. Native compilation requires Python and PyInstaller, while Docker provides pre-configured environments for Windows and Linux.
+
+### Native Compilation
+
+```python
+pip install -r requirements.txt
+python build.py
+```
+
+### Using Docker
+
+Docker simplifies the compilation process by providing ready-to-use environments for both Windows and Linux.
+
+```bash
+docker build -t nightwatch-windows-builder -f ./dockerfiles/Dockerfile.windows .
+
+docker run --name nightwatch-windows-builder --volume=$(pwd):/app -d nightwatch-windows-builder
+```
+
+**For Linux:**
+
+Follow similar steps as above but replace the Dockerfile name with the appropriate one for Linux.
+
 ## License
 
 This project is licensed under the [MIT License](./LICENSE).
