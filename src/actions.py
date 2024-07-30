@@ -13,7 +13,7 @@ import pyautogui
 def get_os():
     """Determines the name of the operating system."""
     os_name = platform.system()
-    return os_name, "Unknown"
+    return os_name
 
 
 def pause_media():

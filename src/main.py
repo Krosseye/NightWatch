@@ -22,6 +22,7 @@ def resource_path(relative_path):
     """Get absolute path to resource (works for dev and bin)"""
     try:
         base_path = sys._MEIPASS  # PyInstaller temp folder
+        base_path = os.path.join(sys._MEIPASS, "resources")
     except Exception:
         current_dir = os.path.dirname(os.path.realpath(__file__))
         base_path = os.path.join(current_dir, "resources")
@@ -69,6 +70,16 @@ class NightWatch(tk.Tk):
         self.setup_ui()
         self.should_stop_countdown = False
 
+        try:
+            # Attempt to get the EUID
+            euid = os.geteuid()
+            if euid != 0:
+                self.show_error("This program needs root privileges.")
+                sys.exit(1)
+        except AttributeError:
+            # On Windows, os.geteuid() is not defined
+            pass
+
     def setup_window(self):
         """Set up the main application window."""
         self.title("NightWatch")
@@ -83,7 +94,7 @@ class NightWatch(tk.Tk):
         x, y = (screen_width / 2) - (width / 2), (screen_height / 2) - (height / 2)
         self.geometry(f"{width}x{height}+{int(x)}+{int(y)}")
 
-        self.iconbitmap(resource_path("icon.ico"))
+        self.iconphoto(True, tk.PhotoImage(file=resource_path("icon.png")))
         sv_ttk.set_theme("dark")  # Use 'Sun Valley' theme
 
     def setup_ui(self):
