@@ -15,6 +15,7 @@
 - **Prevents wasted power:** Avoids media playback running all night and unnecessary computer usage while you sleep.
 - **Promotes restful sleep:** Creates a quiet and undisturbed sleep environment.
 - **Simple to use:** Just set the timer and choose the desired action.
+- **Dark Theme:** Due to the nature of this app, **NightWatch** defaults to a dark theme, even if the system is set to prefer light. However, if you prefer, you can enable light mode by passing the `--light-mode` or `--light-theme` flag.
 
 **NightWatch** helps you establish a healthier sleep routine by ensuring your devices don't disrupt your rest.
 

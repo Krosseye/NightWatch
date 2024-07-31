@@ -1,12 +1,15 @@
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV WINEARCH=win64
+ENV WINEDEBUG=fixme-all
+ENV WINEPREFIX=/wine
 
 ARG WINE_VERSION=winehq-devel
 ARG PYTHON_VERSION=3.12.4
 ARG PYINSTALLER_VERSION=6.9.0
 
-# We need wine for this all to work, so we'll use the PPA
+# Install dependencies and setup Wine
 RUN set -x \
     && dpkg --add-architecture i386 \
     && apt update -qy \
@@ -22,7 +25,7 @@ RUN set -x \
     && apt update -qy \
     && apt install --no-install-recommends -qfy \
     $WINE_VERSION \
-    winbind  \
+    winbind \
     cabextract \
     && apt clean \
     && rm -rf \
@@ -32,18 +35,7 @@ RUN set -x \
     && chmod +x winetricks \
     && mv winetricks /usr/local/bin
 
-# Wine settings
-ENV WINEARCH=win64
-ENV WINEDEBUG=fixme-all
-ENV WINEPREFIX=/wine
-
-# PYPI repository location
-ENV PYPI_URL=https://pypi.python.org/
-# PYPI index location
-ENV PYPI_INDEX_URL=https://pypi.python.org/simple
-
-# Install Python in Wine, using the MSI packages to install, extracting
-# the files directly, since installing isn't running correctly.
+# Install Python in Wine
 RUN set -x \
     && winetricks win10 \
     && for msifile in core dev exe lib path pip tcltk; do \
@@ -54,42 +46,34 @@ RUN set -x \
     && cd /wine/drive_c/Python3 \
     && echo 'wine '\''C:\Python3\python.exe'\'' "$@"' > /usr/bin/python \
     && echo 'wine '\''C:\Python3\Scripts\easy_install.exe'\'' "$@"' > /usr/bin/easy_install \
-    && echo 'wine '\''C:\Python3\Scripts\pip.exe'\'' "$@"' > /usr/bin/pip \
+    && echo 'wine '\''C:\Python3\Scripts\pip.exe'\'' "$@"' > /usr/bin/pip3 \
     && echo 'wine '\''C:\Python3\Scripts\pyinstaller.exe'\'' "$@"' > /usr/bin/pyinstaller \
     && echo 'wine '\''C:\Python3\Scripts\pyupdater.exe'\'' "$@"' > /usr/bin/pyupdater \
     && echo 'assoc .py=PythonScript' | wine cmd \
     && echo 'ftype PythonScript=c:\Python3\python.exe "%1" %*' | wine cmd \
     && while pgrep wineserver >/dev/null; do echo "Waiting for wineserver"; sleep 1; done \
-    && chmod +x /usr/bin/python /usr/bin/easy_install /usr/bin/pip /usr/bin/pyinstaller /usr/bin/pyupdater \
+    && chmod +x /usr/bin/python /usr/bin/easy_install /usr/bin/pip3 /usr/bin/pyinstaller /usr/bin/pyupdater \
     && (pip install -U pip || true) \
     && rm -rf /tmp/.wine-*
 
-ENV W_DRIVE_C=/wine/drive_c
-ENV W_WINDIR_UNIX="$W_DRIVE_C/windows"
-ENV W_SYSTEM64_DLLS="$W_WINDIR_UNIX/system32"
-ENV W_TMP="$W_DRIVE_C/windows/temp/_$0"
-
-# Install Microsoft Visual C++ Redistributable for Visual Studio 2017 DLL files
+# Setup for Microsoft Visual C++ Redistributable
 RUN set -x \
-    && rm -f "$W_TMP"/* \
-    && wget -P "$W_TMP" https://download.visualstudio.microsoft.com/download/pr/11100230/15ccb3f02745c7b206ad10373cbca89b/VC_redist.x64.exe \
-    && cabextract -q --directory="$W_TMP" "$W_TMP/VC_redist.x64.exe" \
-    && cabextract -q --directory="$W_TMP" "$W_TMP/a10" \
-    && cabextract -q --directory="$W_TMP" "$W_TMP/a11" \
-    && cd "$W_TMP" \
+    && rm -f "/wine/drive_c/windows/temp/_$0"/* \
+    && wget -P "/wine/drive_c/windows/temp/_$0" https://download.visualstudio.microsoft.com/download/pr/11100230/15ccb3f02745c7b206ad10373cbca89b/VC_redist.x64.exe \
+    && cabextract -q --directory="/wine/drive_c/windows/temp/_$0" "/wine/drive_c/windows/temp/_$0/VC_redist.x64.exe" \
+    && cabextract -q --directory="/wine/drive_c/windows/temp/_$0" "/wine/drive_c/windows/temp/_$0/a10" \
+    && cabextract -q --directory="/wine/drive_c/windows/temp/_$0" "/wine/drive_c/windows/temp/_$0/a11" \
+    && cd "/wine/drive_c/windows/temp/_$0" \
     && rename 's/_/-/g' *.dll \
-    && cp "$W_TMP"/*.dll "$W_SYSTEM64_DLLS"/
+    && cp "/wine/drive_c/windows/temp/_$0"/*.dll "/wine/drive_c/windows/system32"/
 
-# Install PyInstaller
-RUN /usr/bin/pip install pyinstaller==$PYINSTALLER_VERSION
-
-# put the src folder inside wine
-RUN ln -s /app /wine/drive_c/app
 VOLUME /app/
-WORKDIR /wine/drive_c/app/
-RUN mkdir -p /wine/drive_c/tmp
+COPY dockerfiles/entrypoint.sh /entrypoint.sh
 
-COPY scripts/windows_entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Prepare the working directory and entrypoint script
+RUN /usr/bin/pip3 install pyinstaller==$PYINSTALLER_VERSION \
+    && ln -s /app /wine/drive_c/app \
+    && mkdir -p /wine/drive_c/tmp \
+    && chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
