@@ -12,6 +12,7 @@ from tkinter import messagebox, ttk
 
 import sv_ttk
 from actions import pause_media, shutdown_system, sleep_system
+from timer import CountdownTimer
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -68,7 +69,7 @@ class NightWatch(tk.Tk):
         )
 
         self.setup_ui()
-        self.should_stop_countdown = False
+        self.timer = None
 
         try:
             # Attempt to get the EUID
@@ -95,7 +96,14 @@ class NightWatch(tk.Tk):
         self.geometry(f"{width}x{height}+{int(x)}+{int(y)}")
 
         self.iconphoto(True, tk.PhotoImage(file=resource_path("icon.png")))
-        sv_ttk.set_theme("dark")  # Use 'Sun Valley' theme
+
+        if len(sys.argv) > 1 and sys.argv[1].lower() in [
+            "--light-theme",
+            "--light-mode",
+        ]:
+            sv_ttk.set_theme("light")
+        else:
+            sv_ttk.set_theme("dark")
 
     def setup_ui(self):
         """Set up the user interface elements."""
@@ -126,72 +134,52 @@ class NightWatch(tk.Tk):
     def run_timer(self):
         """Start the timer based on user input."""
         try:
-            clock_time = (
-                int(self.hour_string.get()) * 3600
-                + int(self.minute_string.get()) * 60
-                + int(self.second_string.get())
-            )
-            set_time = clock_time
-            self.should_stop_countdown = False
+            hours = int(self.hour_string.get())
+            minutes = int(self.minute_string.get())
+            seconds = int(self.second_string.get())
         except ValueError:
             self.show_error("Invalid values")
             return
 
-        if clock_time <= 0:
+        if hours <= 0 and minutes <= 0 and seconds <= 0:
             self.show_error("A positive number is required")
             return
 
-        def stop_countdown():
-            self.should_stop_countdown = True
+        if self.timer:
+            self.timer.stop()
 
-        self.btn_start_timer.config(text="Cancel", command=stop_countdown)
-
-        self.countdown(clock_time, set_time)
+        self.timer = CountdownTimer(hours, minutes, seconds, self.update_ui)
+        self.timer.start()
+        self.btn_start_timer.config(text="Cancel", command=self.reset_timer)
 
     def show_error(self, message):
         """Display an error message in a message box."""
-        logging.error("Error: %s", message)
-        messagebox.showinfo("NightWatch", message, icon="error")
+        logging.error(str(message))
+        messagebox.showinfo("NightWatch", "Error: " + message, icon="error")
 
-    def countdown(self, clock_time, set_time):
-        """Perform the countdown and update the UI accordingly."""
-        self.should_stop_countdown = False
+    def update_ui(self, hours, minutes, seconds, clock_time, action=False):
+        """Update the UI with the remaining time or execute action."""
+        self.hour_string.set(f"{hours:02d}")
+        self.minute_string.set(f"{minutes:02d}")
+        self.second_string.set(f"{seconds:02d}")
+        self.prg_time_left.configure(value=clock_time, maximum=self.timer.total_time)
+        self.update()
 
-        def tick():
-            nonlocal clock_time
-            self.update()
+        if action:
+            self.execute_action()
 
-            if self.should_stop_countdown:
-                self.reset_timer(set_time)
-                return
-
-            total_minutes, total_seconds = divmod(clock_time, 60)
-            total_hours, total_minutes = divmod(total_minutes, 60)
-
-            self.hour_string.set(f"{total_hours:02d}")
-            self.minute_string.set(f"{total_minutes:02d}")
-            self.second_string.set(f"{total_seconds:02d}")
-
-            self.prg_time_left.configure(value=clock_time, maximum=set_time)
-            logging.debug(clock_time, "seconds left")
-            self.update()
-
-            if clock_time > 0:
-                clock_time -= 1
-                self.after(1000, tick)
-            else:
-                self.execute_action()
-
-        tick()
-
-    def reset_timer(self, set_time):
+    def reset_timer(self):
         """Reset the timer to its initial state."""
+        if self.timer:
+            self.timer.stop()
+            self.timer = None
+
         self.hour_string.set("00")
         self.minute_string.set("00")
         self.second_string.set("00")
-        self.prg_time_left.configure(value=0, maximum=set_time)
+        self.prg_time_left.configure(value=0)
         self.update()
-        logging.info("Timer has been cancelled")
+        logging.info("Timer has been reset")
         self.btn_start_timer.config(text="Start Timer", command=self.run_timer)
 
     def execute_action(self):
