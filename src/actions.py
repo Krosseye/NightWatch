@@ -36,8 +36,7 @@ def sleep_system(self):
     elif current_os == "Linux":
         os.system("systemctl suspend")
     else:
-        logging.error("Error shutting down, unkown operating system.")
-        self.show_error("Unknown operating system.")
+        self.show_error("Unable to suspend, unkown operating system.")
 
 
 def shutdown_system(self):
@@ -51,5 +50,4 @@ def shutdown_system(self):
     elif current_os == "Linux":
         os.system("sudo shutdown -h now")
     else:
-        logging.error("Error shutting down, unkown operating system.")
-        self.show_error("Unknown operating system.")
+        self.show_error("Unable to shutdown, unkown operating system.")
